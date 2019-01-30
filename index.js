@@ -3,9 +3,10 @@
 //--------------------------------------------------------
 'use strict';
 
-const dargs    = require('dargs');
-const ow       = require('ow');
-const terminal = require('@absolunet/terminal');
+const { execSync } = require('child_process');
+const dargs        = require('dargs');
+const ow           = require('ow');
+const terminal     = require('@absolunet/terminal');
 
 
 const MULTIPLE_MATCHES = 'Multiple matches found.';
@@ -21,6 +22,9 @@ const REGEXP_NAMEID = /^(.+) (\[id: (.+)\])$/u;
 
 // Field:Value
 const REGEXP_NOTE_FIELD = /^(.+):(.+)?$/u;  // eslint-disable-line unicorn/no-unsafe-regex
+
+// Error: Could not find specified account(s).
+const REGEXP_NOT_FOUND = /^Error: Could not find specified account\(s\)\.\n$/u;
 
 
 const call = (input = '', args = {}, allowed = {}, aliases = {}) => {
@@ -39,6 +43,19 @@ const call = (input = '', args = {}, allowed = {}, aliases = {}) => {
 			message: (error.stderr || error.stdout || error.toString()).split('\n').filter(Boolean).join('\n')
 		};
 	}
+};
+
+
+const parseMultipleMatches = (lines) => {
+	const matches = [];
+	lines.forEach((line) => {
+		const [, name, , id] = REGEXP_NAMEID.exec(line) || [];
+		if (name && id) {
+			matches.push({ name, id });
+		}
+	});
+
+	return matches;
 };
 
 
@@ -117,11 +134,7 @@ class LastPass {
 
 			// Multiple matches
 			if (firstLine === MULTIPLE_MATCHES) {
-				const matches = [];
-				lines.forEach((line) => {
-					const [, name, , id] = REGEXP_NAMEID.exec(line);
-					matches.push({ name, id });
-				});
+				const matches = parseMultipleMatches(lines);
 
 				return {
 					success: false,
@@ -395,6 +408,34 @@ class LastPass {
 		const list = typeof nameOrUniqueId === 'string' ? [sites] : sites;
 
 		return call(`share limit "${share}" "${username}" ${list ? `"${list.join('" "')}"` : ''}`, args, ['deny', 'allow', 'add', 'rm', 'clear']);
+	}
+
+
+
+
+
+
+	// Scan for entries via 'lpass show' - Must be logged in because it traps password prompt
+	async scan(searchInput, { basicRegexp = false, fixedStrings = false } = {}) {
+		ow(searchInput, ow.any(ow.string.nonEmpty, ow.array));
+		ow(basicRegexp, ow.boolean);
+		ow(fixedStrings, ow.boolean);
+
+		const searchTerms = typeof searchInput === 'string' ? [searchInput] : searchInput;
+		const cmd = `lpass show "${searchTerms.join('" "')}" ${dargs({ basicRegexp, fixedStrings }, { ignoreFalse:true }).join(' ')}`;
+
+		try {
+			const result = execSync(cmd, { stdio:'pipe', encoding:'utf8' });
+
+			return parseMultipleMatches(result.split('\n'));
+
+		} catch (error) {
+			if (REGEXP_NOT_FOUND.test(error.stderr)) {
+				return [];
+			}
+
+			throw new Error(error);
+		}
 	}
 
 }

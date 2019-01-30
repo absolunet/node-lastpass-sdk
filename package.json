@@ -1,6 +1,6 @@
 {
   "name": "@absolunet/lastpass-sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "LastPass SDK via lpass(1)",
   "definition": "",
   "homepage": "https://github.com/absolunet/node-lastpass-sdk",
@@ -22,7 +22,7 @@
     "url": "https://github.com/absolunet/node-lastpass-sdk/issues"
   },
   "engines": {
-    "node": ">= 11.6.0"
+    "node": ">= 11.8.0"
   },
   "main": "index.js",
   "scripts": {
@@ -32,8 +32,8 @@
     "@absolunet/tester": "2.4.4"
   },
   "dependencies": {
-    "@absolunet/terminal": "^1.0.0",
+    "@absolunet/terminal": "^1.1.0",
     "dargs": "^6.0.0",
-    "ow": "^0.10.0"
+    "ow": "^0.11.1"
   }
 }

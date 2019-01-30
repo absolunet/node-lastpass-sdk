@@ -10,6 +10,8 @@
 
 Maps every subcommands from the [LastPass CLI](https://github.com/lastpass/lastpass-cli) and tries to parse the results into Objects
 
+Also contains wrapper functions to help with some shortcomings of the CLI
+
 
 ## Install
 
@@ -36,7 +38,7 @@ if (logged) {
 ```
 
 
-## API
+## API - CLI
 - Uses [dargs](https://github.com/sindresorhus/dargs#readme) for arguments mapping
 - Successful calls returns an Object with `success:true`, `raw` properties (Some return a `data` property with parsed data)
 - Failed calls returns an Object with `success:false`, `message` properties (Some may also return `data`, `raw` if pertinent)
@@ -316,6 +318,30 @@ LastPass username
 *Required*<br>
 Type: `String` or `Array[String]`<br>
 Sites
+
+
+
+
+
+
+## API - Helpers
+
+### scan(searchInput *[, options]*)
+Scans for entries via 'lpass show' (**IMPORTANT:** Must be logged in or will throw an error)<br>
+Returns an `Array` of `Object` of entries fullname and id<br>
+
+#### searchInput
+*Required*<br>
+Type: `String` or `Array[String]`<br>
+Entry name or search patterns
+
+#### options.basicRegexp
+Type: `Boolean`<br>
+Activate 'lpass show --basic-regexp' flag
+
+#### options.fixedStrings
+Type: `Boolean`<br>
+Activate 'lpass show --fixed-strings' flag
 
 
 
