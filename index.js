@@ -70,9 +70,11 @@ class LastPass {
 	async login(username, args = {}) {
 		ow(username, ow.string.nonEmpty);
 		ow(args, ow.object);
+
 		const { password } = args;
+		const prefix       = password ? `echo "${password}" | LPASS_DISABLE_PINENTRY=1` : '';
+
 		delete args.password;
-		const prefix = password ? `echo "${password}" | LPASS_DISABLE_PINENTRY=1` : '';
 
 		return call(`login "${username}"`, args, ['trust', 'plaintextKey', 'force', 'color'], undefined, prefix);
 	}
