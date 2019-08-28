@@ -44,7 +44,7 @@ if (logged) {
 - Failed calls returns an Object with `success:false`, `message` properties (Some may also return `data`, `raw` if pertinent)
 <br>
 
-### login(username *[, args]*)
+### login(username *[, parameters]*)
 Login to LastPass
 
 #### username
@@ -53,10 +53,15 @@ Type: `String`<br>
 LastPass username
 
 
+#### parameters.password
+Type: `String`<br>
+LastPass password if you want to skip the manual PIN entry
+
+
 
 <br>
 
-### logout(*[args]*)
+### logout(*[parameters]*)
 Logout from LastPass
 
 
@@ -70,7 +75,7 @@ Change master password
 
 <br>
 
-### show(nameOrUniqueId *[, args]*)
+### show(nameOrUniqueId *[, parameters]*)
 Show entries details<br>
 Returns data as an `Array` of `Object` of entry's fields
 
@@ -83,7 +88,7 @@ Entry name or unique id
 
 <br>
 
-### ls(*[group] [, args]*)
+### ls(*[group] [, parameters]*)
 List all entries
 Returns data as an `Array` of `Object` of entry's fields
 
@@ -95,7 +100,7 @@ Group name
 
 <br>
 
-### mv(uniqueNameOrUniqueId, group *[, args]*)
+### mv(uniqueNameOrUniqueId, group *[, parameters]*)
 Move entry to another group
 
 #### uniqueNameOrUniqueId
@@ -113,7 +118,7 @@ Group name
 
 <br>
 
-### add(nameOrUniqueId *[, args]*)
+### add(nameOrUniqueId *[, parameters]*)
 Add entry
 
 #### nameOrUniqueId
@@ -125,7 +130,7 @@ Entry name or unique id
 
 <br>
 
-### edit(nameOrUniqueId *[, args]*)
+### edit(nameOrUniqueId *[, parameters]*)
 Edit entry
 
 #### nameOrUniqueId
@@ -138,7 +143,7 @@ Entry name or unique id
 <br>
 
 
-### generate(nameOrUniqueId *[, length] [, args]*)
+### generate(nameOrUniqueId *[, length] [, parameters]*)
 Generate password
 Returns data as an `Object` with password
 
@@ -156,7 +161,7 @@ Password length<br>
 
 <br>
 
-### duplicate(uniqueNameOrUniqueId *[, args]*)
+### duplicate(uniqueNameOrUniqueId *[, parameters]*)
 Duplicate entry
 
 #### uniqueNameOrUniqueId
@@ -168,7 +173,7 @@ Unique entry name or id
 
 <br>
 
-### rm(uniqueNameOrUniqueId *[, args]*)
+### rm(uniqueNameOrUniqueId *[, parameters]*)
 Remove entry
 
 #### uniqueNameOrUniqueId
@@ -180,7 +185,7 @@ Unique entry name or id
 
 <br>
 
-### status(*[args]*)
+### status(*[parameters]*)
 Check if logged
 Returns data as an `Object` with username
 
@@ -188,14 +193,14 @@ Returns data as an `Object` with username
 
 <br>
 
-### sync(*[args]*)
+### sync(*[parameters]*)
 Synchronize the local cache with the LastPass servers
 
 
 
 <br>
 
-### import(filename *[, args]*)
+### import(filename *[, parameters]*)
 Import entries
 
 #### filename
@@ -207,7 +212,7 @@ Path to file to import
 
 <br>
 
-### export(*[args]*)
+### export(*[parameters]*)
 Export entries
 
 
@@ -226,7 +231,7 @@ Shared folder
 
 <br>
 
-### shareUseradd(share, username *[, args]*)
+### shareUseradd(share, username *[, parameters]*)
 Add user to a shared folder
 
 #### share
@@ -243,7 +248,7 @@ LastPass username
 
 <br>
 
-### shareUsermod(share, username *[, args]*)
+### shareUsermod(share, username *[, parameters]*)
 Modify user of a shared folder
 
 #### share
@@ -301,7 +306,7 @@ Shared folder
 
 <br>
 
-### shareLimit(share, username *[, sites] [, args]*)
+### shareLimit(share, username *[, sites] [, parameters]*)
 Manipulate account access lists on a shared folder for a specific user
 
 #### share

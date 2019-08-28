@@ -6,29 +6,29 @@
 const { execSync } = require('child_process');
 const dargs        = require('dargs');
 const ow           = require('ow');
-const terminal     = require('@absolunet/terminal');
+const { terminal } = require('@absolunet/terminal');
 
 
 const MULTIPLE_MATCHES = 'Multiple matches found.';
 
 // Logged in as user@example.com.
-const REGEXP_LOGGED_IN = /^Logged in as (.*)\.$/u;
+const REGEXP_LOGGED_IN = /^Logged in as (?<username>.*)\.$/u;
 
 // 2019-01-02 03:04 lorem-ipsum [id: 1234567890] [username: john@example.com]
-const REGEXP_SHOW_LONG = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})? (.+) (\[id: (.+)\]) (\[username: (.+)?\])$/u;  // eslint-disable-line unicorn/no-unsafe-regex
+const REGEXP_SHOW_LONG = /^(?<date>\d{4}-\d{2}-\d{2} \d{2}:\d{2})? (?<name>.+) (?<fullid>\[id: (?<id>.+)\]) (?<fullusername>\[username: (?<username>.+)?\])$/u;
 
 // lorem-ipsum [id: 1234567890]
-const REGEXP_NAMEID = /^(.+) (\[id: (.+)\])$/u;
+const REGEXP_NAMEID = /^(?<name>.+) (?<fullid>\[id: (?<id>.+)\])$/u;
 
 // Field:Value
-const REGEXP_NOTE_FIELD = /^(.+):(.+)?$/u;  // eslint-disable-line unicorn/no-unsafe-regex
+const REGEXP_NOTE_FIELD = /^(?<field>.+):(?<value>.+)?$/u;
 
 // Error: Could not find specified account(s).
 const REGEXP_NOT_FOUND = /^Error: Could not find specified account\(s\)\.\n$/u;
 
 
-const call = (input = '', args = {}, allowed = {}, aliases = {}, prefix = '') => {
-	const command = `${prefix ? `${prefix.trim()} ` : ''}lpass ${input} ${dargs(args, { ignoreFalse:true, includes:allowed.concat(Object.keys(aliases)), aliases:aliases }).join(' ')}`;
+const call = (input = '', parameters = {}, allowed = {}, aliases = {}, prefix = '') => {
+	const command = `${prefix ? `${prefix.trim()} ` : ''}lpass ${input} ${dargs(parameters, { ignoreFalse: true, includes: allowed.concat(Object.keys(aliases)), aliases: aliases }).join(' ')}`;
 
 	try {
 		return {
@@ -46,10 +46,18 @@ const call = (input = '', args = {}, allowed = {}, aliases = {}, prefix = '') =>
 };
 
 
+const extractValues = (raw, pattern) => {
+	const { groups = {} } = raw.match(pattern) || {};
+
+	return groups;
+};
+
+
 const parseMultipleMatches = (lines) => {
 	const matches = [];
 	lines.forEach((line) => {
-		const [, name, , id] = REGEXP_NAMEID.exec(line) || [];
+		const { name, id } = extractValues(line, REGEXP_NAMEID);
+
 		if (name && id) {
 			matches.push({ name, id });
 		}
@@ -67,24 +75,24 @@ const parseMultipleMatches = (lines) => {
 class LastPass {
 
 	// lpass login [--trust] [--plaintext-key [--force, -f]] [--color=auto|never|always] USERNAME
-	async login(username, args = {}) {
-		ow(username, ow.string.nonEmpty);
-		ow(args, ow.object);
+	async login(username, parameters = {}) {
+		ow(username,   ow.string.nonEmpty);
+		ow(parameters, ow.object);
 
-		const { password } = args;
+		const { password } = parameters;
 		const prefix       = password ? `echo "${password}" | LPASS_DISABLE_PINENTRY=1` : '';
 
-		delete args.password;
+		delete parameters.password;
 
-		return call(`login "${username}"`, args, ['trust', 'plaintextKey', 'force', 'color'], undefined, prefix);
+		return call(`login "${username}"`, parameters, ['trust', 'plaintextKey', 'force', 'color'], undefined, prefix);
 	}
 
 
 	// lpass logout [--force, -f] [--color=auto|never|always]
-	async logout(args = {}) {
-		ow(args, ow.object);
+	async logout(parameters = {}) {
+		ow(parameters, ow.object);
 
-		return call(`logout`, args, ['force', 'color']);
+		return call(`logout`, parameters, ['force', 'color']);
 	}
 
 
@@ -95,22 +103,22 @@ class LastPass {
 
 
 	// lpass show [--sync=auto|now|no] [--clip, -c] [--expand-multi, -x] [--all|--username|--password|--url|--notes|--field=FIELD|--id|--name] [--basic-regexp, -G|--fixed-strings, -F] [--color=auto|never|always] {NAME|UNIQUEID}*
-	async show(nameOrUniqueId = [], args = {}) {
+	async show(nameOrUniqueId = [], parameters = {}) {
 		ow(nameOrUniqueId, ow.any(ow.string.nonEmpty, ow.array));
-		ow(args, ow.object);
+		ow(parameters,     ow.object);
 
 		const entries = typeof nameOrUniqueId === 'string' ? [nameOrUniqueId] : nameOrUniqueId;
 
 		// Is a single field query
 		const selectedFields = [];
 		['username', 'password', 'url', 'notes', 'id', 'name'].forEach((selected) => {
-			if (args[selected] === true) {
+			if (parameters[selected] === true) {
 				selectedFields.push(selected);
 			}
 		});
 
-		if (args.field) {
-			selectedFields.push(args.field);
+		if (parameters.field) {
+			selectedFields.push(parameters.field);
 		}
 
 		if (selectedFields.length > 1) {
@@ -127,11 +135,11 @@ class LastPass {
 			};
 		}
 
-		args.json = selectedFields.length === 0;
+		parameters.json = selectedFields.length === 0;
 
 
 		// Call
-		const results = call(`show "${entries.join('" "')}"`, args, ['sync', 'clip', 'expandMulti', 'all', 'username', 'password', 'url', 'notes', 'field', 'id', 'name', 'basicRegexp', 'fixedStrings', 'color', 'json']);
+		const results = call(`show "${entries.join('" "')}"`, parameters, ['sync', 'clip', 'expandMulti', 'all', 'username', 'password', 'url', 'notes', 'field', 'id', 'name', 'basicRegexp', 'fixedStrings', 'color', 'json']);
 
 		if (results.success) {
 			const lines     = results.raw.split('\n');
@@ -152,7 +160,7 @@ class LastPass {
 			let data;
 
 			// JSON output
-			if (args.json) {
+			if (parameters.json) {
 
 				data = JSON.parse(results.raw);
 				data.forEach((entry) => {
@@ -166,7 +174,7 @@ class LastPass {
 						entry.note.split('\n').forEach((noteField) => {
 
 							// Might break if field contains ':'
-							const [, field, value = ''] = REGEXP_NOTE_FIELD.exec(noteField) || [];
+							const { field, value } = extractValues(noteField, REGEXP_NOTE_FIELD);
 							if (field) {
 								latestField = field;
 								entry[field] = value;
@@ -181,7 +189,7 @@ class LastPass {
 
 			// Selected field
 			} else {
-				data = [{ [selectedFields[0]]:results.raw }];
+				data = [{ [selectedFields[0]]: results.raw }];
 			}
 
 			return {
@@ -196,22 +204,22 @@ class LastPass {
 
 
 	// lpass ls [--sync=auto|now|no] [--long, -l] [-m] [-u] [--color=auto|never|always] [GROUP]
-	async ls(group = '', args = {}) {
-		ow(group, ow.string);
-		ow(args, ow.object);
+	async ls(group = '', parameters = {}) {
+		ow(group,      ow.string);
+		ow(parameters, ow.object);
 
-		const results = call(`ls "${group}"`, args, ['sync', 'long', 'color'], { lastUse:'u' });
+		const results = call(`ls "${group}"`, parameters, ['sync', 'long', 'color'], { lastUse: 'u' });
 
 		if (results.success) {
 			const data = [];
 
 			results.raw.split('\n').forEach((entry) => {
 
-				if (args.long) {
-					const [, date, name, , id, , username] = REGEXP_SHOW_LONG.exec(entry);
+				if (parameters.long) {
+					const { date, name, id, username } = extractValues(entry, REGEXP_SHOW_LONG);
 
-					const dateKey   = `last_${args.lastUse ? 'touch' : 'modified_gmt'}`;
-					const dateValue =  date ? new Date(args.lastUse ? date : `${date.replace(' ', 'T')}:00.000Z`) : undefined;
+					const dateKey   = `last_${parameters.lastUse ? 'touch' : 'modified_gmt'}`;
+					const dateValue =  date ? new Date(parameters.lastUse ? date : `${date.replace(' ', 'T')}:00.000Z`) : undefined;
 
 					data.push({
 						name:     name,
@@ -221,7 +229,7 @@ class LastPass {
 					});
 
 				} else {
-					const [, name, , id] = REGEXP_NAMEID.exec(entry);
+					const { name, id } = extractValues(entry, REGEXP_NAMEID);
 					data.push({ name, id });
 				}
 			});
@@ -238,45 +246,45 @@ class LastPass {
 
 
 	// lpass mv [--sync=auto|now|no] [--color=auto|never|always] {UNIQUENAME|UNIQUEID} GROUP
-	async mv(uniqueNameOrUniqueId, group, args = {}) {
+	async mv(uniqueNameOrUniqueId, group, parameters = {}) {
 		ow(uniqueNameOrUniqueId, ow.string.nonEmpty);
-		ow(group, ow.string.nonEmpty);
-		ow(args, ow.object);
+		ow(group,                ow.string.nonEmpty);
+		ow(parameters,           ow.object);
 
-		return call(`mv "${uniqueNameOrUniqueId}" "${group}"`, args, ['sync', 'color']);
+		return call(`mv "${uniqueNameOrUniqueId}" "${group}"`, parameters, ['sync', 'color']);
 	}
 
 
 	// lpass add [--sync=auto|now|no] [--non-interactive] {--name|--username, -u|--password, -p|--url|--notes|--field=FIELD|--note-type=NOTETYPE} [--color=auto|never|always] {NAME|UNIQUEID}
-	async add(nameOrUniqueId, args = {}) {
+	async add(nameOrUniqueId, parameters = {}) {
 		ow(nameOrUniqueId, ow.string.nonEmpty);
-		ow(args, ow.object);
+		ow(parameters,     ow.object);
 
-		return call(`add "${nameOrUniqueId}"`, args, ['sync', 'nonInteractive', 'name', 'username', 'password', 'url', 'notes', 'field', 'noteType', 'color']);
+		return call(`add "${nameOrUniqueId}"`, parameters, ['sync', 'nonInteractive', 'name', 'username', 'password', 'url', 'notes', 'field', 'noteType', 'color']);
 	}
 
 
 	// lpass edit [--sync=auto|now|no] [--non-interactive] {--name|--username, -u|--password, -p|--url|--notes|--field=FIELD} [--color=auto|never|always] {NAME|UNIQUEID}
-	async edit(nameOrUniqueId, args = {}) {
+	async edit(nameOrUniqueId, parameters = {}) {
 		ow(nameOrUniqueId, ow.string.nonEmpty);
-		ow(args, ow.object);
+		ow(parameters,     ow.object);
 
-		return call(`edit "${nameOrUniqueId}"`, args, ['sync', 'nonInteractive', 'name', 'username', 'password', 'url', 'notes', 'field', 'color']);
+		return call(`edit "${nameOrUniqueId}"`, parameters, ['sync', 'nonInteractive', 'name', 'username', 'password', 'url', 'notes', 'field', 'color']);
 	}
 
 
 	// lpass generate [--sync=auto|now|no] [--clip, -c] [--username=USERNAME] [--url=URL] [--no-symbols] [--color=auto|never|always] {NAME|UNIQUEID} LENGTH
-	async generate(nameOrUniqueId, length = 32, args = {}) {
+	async generate(nameOrUniqueId, length = 32, parameters = {}) {
 		ow(nameOrUniqueId, ow.string.nonEmpty);
-		ow(length, ow.number.integer.inRange(4, 100));
-		ow(args, ow.object);
+		ow(length,         ow.number.integer.inRange(4, 100));
+		ow(parameters,     ow.object);
 
-		const results = call(`generate "${nameOrUniqueId}" ${length}`, args, ['sync', 'clip', 'username', 'url', 'noSymbols', 'color']);
+		const results = call(`generate "${nameOrUniqueId}" ${length}`, parameters, ['sync', 'clip', 'username', 'url', 'noSymbols', 'color']);
 
 		if (results.success) {
 			return {
 				success: true,
-				data:    { password:results.raw },
+				data:    { password: results.raw },
 				raw:     results.raw
 			};
 		}
@@ -286,31 +294,31 @@ class LastPass {
 
 
 	// lpass duplicate [--sync=auto|now|no] [--color=auto|never|always] {UNIQUENAME|UNIQUEID}
-	async duplicate(uniqueNameOrUniqueId, args = {}) {
+	async duplicate(uniqueNameOrUniqueId, parameters = {}) {
 		ow(uniqueNameOrUniqueId, ow.string.nonEmpty);
-		ow(args, ow.object);
+		ow(parameters,           ow.object);
 
-		return call(`duplicate "${uniqueNameOrUniqueId}"`, args, ['sync', 'color']);
+		return call(`duplicate "${uniqueNameOrUniqueId}"`, parameters, ['sync', 'color']);
 	}
 
 
 	// lpass rm [--sync=auto|now|no] [--color=auto|never|always] {UNIQUENAME|UNIQUEID}
-	async rm(uniqueNameOrUniqueId, args = {}) {
+	async rm(uniqueNameOrUniqueId, parameters = {}) {
 		ow(uniqueNameOrUniqueId, ow.string.nonEmpty);
-		ow(args, ow.object);
+		ow(parameters,           ow.object);
 
-		return call(`rm "${uniqueNameOrUniqueId}"`, args, ['sync', 'color']);
+		return call(`rm "${uniqueNameOrUniqueId}"`, parameters, ['sync', 'color']);
 	}
 
 
 	// lpass status [--quiet, -q] [--color=auto|never|always]
-	async status(args = {}) {
-		ow(args, ow.object);
+	async status(parameters = {}) {
+		ow(parameters, ow.object);
 
-		const results = call(`status`, args, ['quiet', 'color']);
+		const results = call(`status`, parameters, ['quiet', 'color']);
 
 		if (results.success) {
-			const [, username] = REGEXP_LOGGED_IN.exec(results.raw) || [];
+			const { username } = extractValues(results.raw, REGEXP_LOGGED_IN);
 
 			if (username) {
 				return {
@@ -326,27 +334,27 @@ class LastPass {
 
 
 	// lpass sync [--background, -b] [--color=auto|never|always]
-	async sync(args = {}) {
-		ow(args, ow.object);
+	async sync(parameters = {}) {
+		ow(parameters, ow.object);
 
-		return call(`sync`, args, ['background', 'color']);
+		return call(`sync`, parameters, ['background', 'color']);
 	}
 
 
 	// lpass import [--sync=auto|now|no] [FILENAME]
-	async import(filename, args = {}) {
-		ow(filename, ow.string.nonEmpty);
-		ow(args, ow.object);
+	async import(filename, parameters = {}) {
+		ow(filename,   ow.string.nonEmpty);
+		ow(parameters, ow.object);
 
-		return call(`import "${filename}"`, args, ['sync']);
+		return call(`import "${filename}"`, parameters, ['sync']);
 	}
 
 
 	// lpass export [--sync=auto|now|no] [--color=auto|never|always]
-	async export(args = {}) {
-		ow(args, ow.object);
+	async export(parameters = {}) {
+		ow(parameters, ow.object);
 
-		return call(`export`, args, ['sync', 'color']);
+		return call(`export`, parameters, ['sync', 'color']);
 	}
 
 
@@ -359,28 +367,28 @@ class LastPass {
 
 
 	// lpass share useradd [--read-only=[true|false]] [--hidden=[true|false]] [--admin=[true|false]] SHARE USERNAME
-	async shareUseradd(share, username, args = {}) {
-		ow(share, ow.string.nonEmpty);
-		ow(username, ow.string.nonEmpty);
-		ow(args, ow.object);
+	async shareUseradd(share, username, parameters = {}) {
+		ow(share,      ow.string.nonEmpty);
+		ow(username,   ow.string.nonEmpty);
+		ow(parameters, ow.object);
 
-		return call(`share useradd "${share}" "${username}"`, args, ['readOnly', 'hidden', 'admin']);
+		return call(`share useradd "${share}" "${username}"`, parameters, ['readOnly', 'hidden', 'admin']);
 	}
 
 
 	// lpass share usermod [--read-only=[true|false]] [--hidden=[true|false]] [--admin=[true|false]] SHARE USERNAME
-	async shareUsermod(share, username, args = {}) {
-		ow(share, ow.string.nonEmpty);
-		ow(username, ow.string.nonEmpty);
-		ow(args, ow.object);
+	async shareUsermod(share, username, parameters = {}) {
+		ow(share,      ow.string.nonEmpty);
+		ow(username,   ow.string.nonEmpty);
+		ow(parameters, ow.object);
 
-		return call(`share usermod "${share}" "${username}"`, args, ['readOnly', 'hidden', 'admin']);
+		return call(`share usermod "${share}" "${username}"`, parameters, ['readOnly', 'hidden', 'admin']);
 	}
 
 
 	// lpass share userdel SHARE USERNAME
 	async shareUserdel(share, username) {
-		ow(share, ow.string.nonEmpty);
+		ow(share,    ow.string.nonEmpty);
 		ow(username, ow.string.nonEmpty);
 
 		return call(`share userdel "${share}" "${username}"`);
@@ -404,15 +412,15 @@ class LastPass {
 
 
 	// lpass share limit [--deny|--allow] [--add|--rm|--clear] SHARE USERNAME [sites]
-	async shareLimit(share, username, sites = [], args = {}) {
-		ow(share, ow.string.nonEmpty);
-		ow(username, ow.string.nonEmpty);
-		ow(sites, ow.any(ow.string.nonEmpty, ow.array));
-		ow(args, ow.object);
+	async shareLimit(share, username, sites = [], parameters = {}) {
+		ow(share,      ow.string.nonEmpty);
+		ow(username,   ow.string.nonEmpty);
+		ow(sites,      ow.any(ow.string.nonEmpty, ow.array));
+		ow(parameters, ow.object);
 
 		const list = typeof nameOrUniqueId === 'string' ? [sites] : sites;
 
-		return call(`share limit "${share}" "${username}" ${list ? `"${list.join('" "')}"` : ''}`, args, ['deny', 'allow', 'add', 'rm', 'clear']);
+		return call(`share limit "${share}" "${username}" ${list ? `"${list.join('" "')}"` : ''}`, parameters, ['deny', 'allow', 'add', 'rm', 'clear']);
 	}
 
 
@@ -422,15 +430,15 @@ class LastPass {
 
 	// Scan for entries via 'lpass show' - Must be logged in because it traps password prompt
 	async scan(searchInput, { basicRegexp = false, fixedStrings = false } = {}) {
-		ow(searchInput, ow.any(ow.string.nonEmpty, ow.array));
-		ow(basicRegexp, ow.boolean);
+		ow(searchInput,  ow.any(ow.string.nonEmpty, ow.array));
+		ow(basicRegexp,  ow.boolean);
 		ow(fixedStrings, ow.boolean);
 
 		const searchTerms = typeof searchInput === 'string' ? [searchInput] : searchInput;
-		const cmd = `lpass show "${searchTerms.join('" "')}" ${dargs({ basicRegexp, fixedStrings }, { ignoreFalse:true }).join(' ')}`;
+		const cmd = `lpass show "${searchTerms.join('" "')}" ${dargs({ basicRegexp, fixedStrings }, { ignoreFalse: true }).join(' ')}`;
 
 		try {
-			const result = execSync(cmd, { stdio:'pipe', encoding:'utf8' });
+			const result = execSync(cmd, { stdio: 'pipe', encoding: 'utf8' });
 
 			return parseMultipleMatches(result.split('\n'));
 
