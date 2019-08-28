@@ -27,8 +27,8 @@ const REGEXP_NOTE_FIELD = /^(.+):(.+)?$/u;  // eslint-disable-line unicorn/no-un
 const REGEXP_NOT_FOUND = /^Error: Could not find specified account\(s\)\.\n$/u;
 
 
-const call = (input = '', args = {}, allowed = {}, aliases = {}) => {
-	const command = `lpass ${input} ${dargs(args, { ignoreFalse:true, includes:allowed.concat(Object.keys(aliases)), aliases:aliases }).join(' ')}`;
+const call = (input = '', args = {}, allowed = {}, aliases = {}, prefix = '') => {
+	const command = `${prefix ? `${prefix.trim()} ` : ''}lpass ${input} ${dargs(args, { ignoreFalse:true, includes:allowed.concat(Object.keys(aliases)), aliases:aliases }).join(' ')}`;
 
 	try {
 		return {
@@ -71,7 +71,12 @@ class LastPass {
 		ow(username, ow.string.nonEmpty);
 		ow(args, ow.object);
 
-		return call(`login "${username}"`, args, ['trust', 'plaintextKey', 'force', 'color']);
+		const { password } = args;
+		const prefix       = password ? `echo "${password}" | LPASS_DISABLE_PINENTRY=1` : '';
+
+		delete args.password;
+
+		return call(`login "${username}"`, args, ['trust', 'plaintextKey', 'force', 'color'], undefined, prefix);
 	}
 
 
